@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Сжатие видео</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #22c55e;
+      --accent-hover: #16a34a;
+      --border: #334155;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #020617 0%, #0f172a 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 760px;
+      background: rgba(17, 24, 39, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .header {
+      padding: 28px 28px 12px;
+    }
+
+    .title {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .content {
+      padding: 20px 28px 28px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .dropzone {
+      border: 2px dashed #475569;
+      border-radius: 16px;
+      padding: 28px;
+      text-align: center;
+      background: rgba(15, 23, 42, 0.55);
+      transition: 0.2s ease;
+      cursor: pointer;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(34, 197, 94, 0.08);
+    }
+
+    .dropzone h2 {
+      margin: 0 0 8px;
+      font-size: 20px;
+    }
+
+    .dropzone p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .hidden { display: none; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+
+    input[type="range"],
+    input[type="number"],
+    select,
+    input[type="text"] {
+      width: 100%;
+    }
+
+    input[type="number"],
+    select,
+    input[type="text"] {
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      outline: none;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .range-value {
+      min-width: 56px;
+      text-align: right;
+      color: #86efac;
+      font-weight: 600;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #052e16;
+    }
+
+    .primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .secondary {
+      background: #334155;
+      color: var(--text);
+    }
+
+    .secondary:hover:not(:disabled) {
+      background: #475569;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .progress-wrap {
+      display: grid;
+      gap: 8px;
+    }
+
+    progress {
+      width: 100%;
+      height: 14px;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 14px;
+      min-height: 20px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    .file-meta {
+      display: grid;
+      gap: 6px;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    .result {
+      display: grid;
+      gap: 12px;
+    }
+
+    .result a {
+      color: #86efac;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .error {
+      color: #fecaca;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <h1 class="title">Сжатие видео в браузере</h1>
+      <p class="subtitle">
+        Выбери файл, настрой качество и скачай готовое видео. Всё происходит локально в браузере через ffmpeg.wasm.
+      </p>
+    </div>
+
+    <div class="content">
+      <div class="card">
+        <input id="fileInput" class="hidden" type="file" accept="video/*" />
+        <div id="dropzone" class="dropzone">
+          <h2>Выбери видео или перетащи его сюда</h2>
+          <p>Поддерживаются популярные форматы: mp4, mov, mkv, webm и другие</p>
+        </div>
+      </div>
+
+      <div class="card file-meta" id="fileMeta">
+        <div><strong>Файл:</strong> <span id="fileName">—</span></div>
+        <div><strong>Размер:</strong> <span id="fileSize">—</span></div>
+      </div>
+
+      <div class="card grid">
+        <div class="field">
+          <label for="crfRange">Качество / степень сжатия (CRF)</label>
+          <div class="range-row">
+            <input id="crfRange" type="range" min="18" max="36" value="28" />
+            <div class="range-value" id="crfValue">28</div>
+          </div>
+          <div class="note">Меньше = лучше качество и больше размер. Обычно 24–30.</div>
+        </div>
+
+        <div class="field">
+          <label for="presetSelect">Скорость / эффективность</label>
+          <select id="presetSelect">
+            <option value="veryfast">veryfast</option>
+            <option value="faster">faster</option>
+            <option value="fast">fast</option>
+            <option value="medium" selected>medium</option>
+            <option value="slow">slow</option>
+            <option value="slower">slower</option>
+          </select>
+          <div class="note">Более медленные preset обычно сильнее сжимают файл.</div>
+        </div>
+
+        <div class="field">
+          <label for="maxWidth">Максимальная ширина (px)</label>
+          <input id="maxWidth" type="number" min="0" step="1" value="1280" />
+          <div class="note">0 = оставить исходное разрешение.</div>
+        </div>
+
+        <div class="field">
+          <label for="audioBitrate">Битрейт аудио</label>
+          <select id="audioBitrate">
+            <option value="96k">96k</option>
+            <option value="128k" selected>128k</option>
+            <option value="160k">160k</option>
+            <option value="192k">192k</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card actions">
+        <button id="compressBtn" class="primary" disabled>Сжать видео</button>
+        <button id="resetBtn" class="secondary">Сбросить</button>
+      </div>
+
+      <div class="card progress-wrap">
+        <progress id="progressBar" value="0" max="1"></progress>
+        <div id="status" class="status">FFmpeg ещё не загружен.</div>
+      </div>
+
+      <div id="resultCard" class="card result hidden">
+        <div><strong>Готово.</strong> Файл можно скачать ниже.</div>
+        <div><a id="downloadLink" href="#" download>Скачать сжатое видео</a></div>
+        <div><strong>Размер результата:</strong> <span id="resultSize">—</span></div>
+      </div>
+
+      <div class="note">
+        Совет: если браузер зависает на больших файлах, попробуй preset <strong>veryfast</strong> и уменьшение ширины до <strong>1280</strong> или <strong>854</strong>.
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+    import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const crfRange = document.getElementById('crfRange');
+    const crfValue = document.getElementById('crfValue');
+    const presetSelect = document.getElementById('presetSelect');
+    const maxWidthInput = document.getElementById('maxWidth');
+    const audioBitrate = document.getElementById('audioBitrate');
+    const compressBtn = document.getElementById('compressBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const progressBar = document.getElementById('progressBar');
+    const status = document.getElementById('status');
+    const resultCard = document.getElementById('resultCard');
+    const downloadLink = document.getElementById('downloadLink');
+    const resultSize = document.getElementById('resultSize');
+
+    let ffmpeg = null;
+    let ffmpegLoaded = false;
+    let selectedFile = null;
+    let downloadUrl = null;
+
+    const formatBytes = (bytes) => {
+      if (!bytes && bytes !== 0) return '—';
+      const units = ['Б', 'КБ', 'МБ', 'ГБ'];
+      let size = bytes;
+      let i = 0;
+      while (size >= 1024 && i < units.length - 1) {
+        size /= 1024;
+        i++;
+      }
+      return `${size.toFixed(size >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
+    };
+
+    const setStatus = (text, isError = false) => {
+      status.textContent = text;
+      status.classList.toggle('error', isError);
+    };
+
+    const updateCompressButton = () => {
+      compressBtn.disabled = !(selectedFile && ffmpegLoaded);
+    };
+
+    const loadFFmpeg = async () => {
+      if (ffmpegLoaded) return;
+
+      setStatus('Загружаю FFmpeg... Это может занять до минуты при первом запуске.');
+
+      ffmpeg = new FFmpeg();
+      ffmpeg.on('log', ({ message }) => {
+        if (message) {
+          const lowered = message.toLowerCase();
+          if (
+            lowered.includes('frame=') ||
+            lowered.includes('video:') ||
+            lowered.includes('size=')
+          ) {
+            setStatus(`Обработка...\n${message}`);
+          }
+        }
+      });
+
+      ffmpeg.on('progress', ({ progress }) => {
+        progressBar.value = Math.max(0, Math.min(progress || 0, 1));
+      });
+
+      const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+
+      ffmpegLoaded = true;
+      setStatus('FFmpeg загружен. Можно начинать.');
+      updateCompressButton();
+    };
+
+    const setFile = (file) => {
+      if (!file) return;
+      selectedFile = file;
+      fileName.textContent = file.name;
+      fileSize.textContent = formatBytes(file.size);
+      resultCard.classList.add('hidden');
+      if (downloadUrl) {
+        URL.revokeObjectURL(downloadUrl);
+        downloadUrl = null;
+      }
+      updateCompressButton();
+    };
+
+    const getOutputName = (originalName) => {
+      const dotIndex = originalName.lastIndexOf('.');
+      const base = dotIndex > 0 ? originalName.slice(0, dotIndex) : originalName;
+      return `${base}_compressed.mp4`;
+    };
+
+    const buildFilter = (maxWidth) => {
+      if (!maxWidth || Number(maxWidth) <= 0) return null;
+      return `scale='min(${Number(maxWidth)},iw)':-2`;
+    };
+
+    const compressVideo = async () => {
+      if (!selectedFile || !ffmpegLoaded) return;
+
+      compressBtn.disabled = true;
+      resultCard.classList.add('hidden');
+      progressBar.value = 0;
+
+      const inputName = `input_${Date.now()}_${selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const outputName = getOutputName(selectedFile.name);
+
+      try {
+        setStatus('Подготавливаю файл...');
+        await ffmpeg.writeFile(inputName, await fetchFile(selectedFile));
+
+        const args = [
+          '-i', inputName,
+          '-c:v', 'libx264',
+          '-preset', presetSelect.value,
+          '-crf', String(crfRange.value),
+          '-c:a', 'aac',
+          '-b:a', audioBitrate.value,
+          '-movflags', '+faststart'
+        ];
+
+        const filter = buildFilter(maxWidthInput.value);
+        if (filter) {
+          args.push('-vf', filter);
+        }
+
+        args.push(outputName);
+
+        setStatus('Сжимаю видео...');
+        await ffmpeg.exec(args);
+
+        setStatus('Читаю результат...');
+        const data = await ffmpeg.readFile(outputName);
+        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+
+        if (downloadUrl) {
+          URL.revokeObjectURL(downloadUrl);
+        }
+        downloadUrl = URL.createObjectURL(blob);
+
+        downloadLink.href = downloadUrl;
+        downloadLink.download = outputName;
+        resultSize.textContent = formatBytes(blob.size);
+        resultCard.classList.remove('hidden');
+
+        const ratio = selectedFile.size > 0 ? ((1 - blob.size / selectedFile.size) * 100) : 0;
+        const ratioText = Number.isFinite(ratio) ? `\nЭкономия: ${ratio.toFixed(1)}%` : '';
+        setStatus(`Готово.${ratioText}`);
+
+        try { await ffmpeg.deleteFile(inputName); } catch {}
+        try { await ffmpeg.deleteFile(outputName); } catch {}
+      } catch (error) {
+        console.error(error);
+        setStatus('Не удалось сжать видео. Попробуй файл поменьше, другой браузер или более быстрый preset.', true);
+      } finally {
+        updateCompressButton();
+      }
+    };
+
+    crfRange.addEventListener('input', () => {
+      crfValue.textContent = crfRange.value;
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        setFile(file);
+        if (!ffmpegLoaded) {
+          try {
+            await loadFFmpeg();
+          } catch (error) {
+            console.error(error);
+            setStatus('Не удалось загрузить FFmpeg. Проверь подключение к интернету.', true);
+          }
+        }
+      }
+    });
+
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    ['dragenter', 'dragover'].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+    });
+
+    dropzone.addEventListener('drop', async (e) => {
+      const file = e.dataTransfer?.files?.[0];
+      if (file && file.type.startsWith('video/')) {
+        setFile(file);
+        if (!ffmpegLoaded) {
+          try {
+            await loadFFmpeg();
+          } catch (error) {
+            console.error(error);
+            setStatus('Не удалось загрузить FFmpeg. Проверь подключение к интернету.', true);
+          }
+        }
+      } else {
+        setStatus('Пожалуйста, перетащи именно видеофайл.', true);
+      }
+    });
+
+    compressBtn.addEventListener('click', compressVideo);
+
+    resetBtn.addEventListener('click', () => {
+      selectedFile = null;
+      fileInput.value = '';
+      fileName.textContent = '—';
+      fileSize.textContent = '—';
+      progressBar.value = 0;
+      resultCard.classList.add('hidden');
+      if (downloadUrl) {
+        URL.revokeObjectURL(downloadUrl);
+        downloadUrl = null;
+      }
+      setStatus(ffmpegLoaded ? 'FFmpeg загружен. Можно выбрать новый файл.' : 'FFmpeg ещё не загружен.');
+      updateCompressButton();
+    });
+
+    crfValue.textContent = crfRange.value;
+    loadFFmpeg().catch((error) => {
+      console.error(error);
+      setStatus('Не удалось загрузить FFmpeg. Для работы нужен интернет, чтобы подтянуть wasm-модули.', true);
+    });
+  </script>
+</body>
+</html>
